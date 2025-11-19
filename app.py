@@ -33,7 +33,20 @@ diastolic_bp = st.number_input("Diastolic BP", min_value=50, max_value=130, valu
 heart_rate = st.number_input("Heart Rate", min_value=40, max_value=200, value=75)
 blood_sugar_fasting = st.number_input("Blood Sugar Fasting (mg/dL)", min_value=60, max_value=300, value=90)
 
-# Create input dict
+# NEW MISSING FIELDS
+previous_heart_attack = st.selectbox(
+    "Previous Heart Attack",
+    ["Yes", "No"]
+)
+
+hyperlipidemia = st.selectbox(
+    "Hyperlipidemia (High Cholesterol)",
+    ["Yes", "No"]
+)
+
+# -------------------------------
+# CREATE INPUT DICT
+# -------------------------------
 user_data = {
     "Age": age,
     "Gender": gender,
@@ -53,6 +66,10 @@ user_data = {
     "Diastolic_BP": diastolic_bp,
     "Heart_Rate": heart_rate,
     "Blood_Sugar_Fasting": blood_sugar_fasting,
+    
+    # NEW FIELDS ADDED HERE
+    "Previous_Heart_Attack": previous_heart_attack,
+    "Hyperlipidemia": hyperlipidemia
 }
 
 # Convert to DataFrame
@@ -74,3 +91,4 @@ if st.button("Predict Heart Disease Risk"):
             
     except Exception as e:
         st.error(f"Error: {e}")
+
