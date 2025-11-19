@@ -32,21 +32,10 @@ systolic_bp = st.number_input("Systolic BP", min_value=80, max_value=200, value=
 diastolic_bp = st.number_input("Diastolic BP", min_value=50, max_value=130, value=80)
 heart_rate = st.number_input("Heart Rate", min_value=40, max_value=200, value=75)
 blood_sugar_fasting = st.number_input("Blood Sugar Fasting (mg/dL)", min_value=60, max_value=300, value=90)
+previous_heart_attack = st.selectbox("Previous Heart Attack", ["Yes", "No"])
+hyperlipidemia = st.selectbox("Hyperlipidemia (High Cholesterol)", ["Yes", "No"])
 
-# NEW MISSING FIELDS
-previous_heart_attack = st.selectbox(
-    "Previous Heart Attack",
-    ["Yes", "No"]
-)
-
-hyperlipidemia = st.selectbox(
-    "Hyperlipidemia (High Cholesterol)",
-    ["Yes", "No"]
-)
-
-# -------------------------------
-# CREATE INPUT DICT
-# -------------------------------
+# Create input dict
 user_data = {
     "Age": age,
     "Gender": gender,
@@ -66,10 +55,8 @@ user_data = {
     "Diastolic_BP": diastolic_bp,
     "Heart_Rate": heart_rate,
     "Blood_Sugar_Fasting": blood_sugar_fasting,
-    
-    # NEW FIELDS ADDED HERE
     "Previous_Heart_Attack": previous_heart_attack,
-    "Hyperlipidemia": hyperlipidemia
+    "Hyperlipidemia": hyperlipidemia,
 }
 
 # Convert to DataFrame
@@ -80,15 +67,27 @@ input_df = pd.DataFrame([user_data])
 # -------------------------------
 if st.button("Predict Heart Disease Risk"):
     try:
+        # Convert Yes/No categorical columns to 1/0
+        yes_no_cols = [
+            "Smoking", "Alcohol_Intake", "Hypertension", "Diabetes",
+            "Family_History", "Previous_Heart_Attack", "Hyperlipidemia"
+        ]
+
+        for col in yes_no_cols:
+            if col in input_df.columns:
+                input_df[col] = input_df[col].map({"Yes": 1, "No": 0})
+
+        # Apply encoder and scaler
         encoded = encoder.transform(input_df)
         scaled = scaler.transform(encoded)
+
+        # Model prediction
         prediction = model.predict(scaled)[0]
-        
+
         if prediction == 1:
             st.error("⚠️ High Risk of Heart Disease")
         else:
             st.success("✅ Low Risk of Heart Disease")
-            
+
     except Exception as e:
         st.error(f"Error: {e}")
-
