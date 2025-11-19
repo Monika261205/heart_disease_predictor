@@ -3,22 +3,22 @@ import pandas as pd
 import numpy as np
 import joblib
 
-# Load model, encoder, scaler
+# Load model and preprocessors
 model = joblib.load("final_heart_disease_model.pkl")
 encoder = joblib.load("encoder.pkl")
 scaler = joblib.load("scaler.pkl")
 
 st.title("❤️ Heart Disease Prediction App")
-st.write("Enter the patient details below:")
+st.write("Fill in the details below:")
 
-# -------------------------------
-# INPUT FORM
-# -------------------------------
-age = st.number_input("Age", min_value=1, max_value=120, value=40)
+# --------------------------------
+# INPUT FIELDS
+# --------------------------------
+age = st.number_input("Age", 1, 120, 40)
 gender = st.selectbox("Gender", ["Male", "Female"])
-weight = st.number_input("Weight (kg)", min_value=20, max_value=200, value=70)
-height = st.number_input("Height (cm)", min_value=100, max_value=220, value=170)
-bmi = st.number_input("BMI", min_value=10.0, max_value=60.0, value=24.0)
+weight = st.number_input("Weight (kg)", 20, 200, 70)
+height = st.number_input("Height (cm)", 100, 220, 170)
+bmi = st.number_input("BMI", 10.0, 60.0, 24.0)
 smoking = st.selectbox("Smoking", ["Yes", "No"])
 alcohol = st.selectbox("Alcohol Intake", ["Yes", "No"])
 diet = st.selectbox("Diet", ["Healthy", "Average", "Unhealthy"])
@@ -27,16 +27,18 @@ stress = st.selectbox("Stress Level", ["Low", "Moderate", "High"])
 hypertension = st.selectbox("Hypertension", ["Yes", "No"])
 diabetes = st.selectbox("Diabetes", ["Yes", "No"])
 family_history = st.selectbox("Family History", ["Yes", "No"])
-cholesterol = st.number_input("Cholesterol Total (mg/dL)", min_value=100, max_value=400, value=180)
-systolic_bp = st.number_input("Systolic BP", min_value=80, max_value=200, value=120)
-diastolic_bp = st.number_input("Diastolic BP", min_value=50, max_value=130, value=80)
-heart_rate = st.number_input("Heart Rate", min_value=40, max_value=200, value=75)
-blood_sugar_fasting = st.number_input("Blood Sugar Fasting (mg/dL)", min_value=60, max_value=300, value=90)
+cholesterol = st.number_input("Cholesterol Total (mg/dL)", 100, 400, 180)
+systolic_bp = st.number_input("Systolic BP", 80, 200, 120)
+diastolic_bp = st.number_input("Diastolic BP", 50, 130, 80)
+heart_rate = st.number_input("Heart Rate", 40, 200, 75)
+blood_sugar_fasting = st.number_input("Blood Sugar Fasting (mg/dL)", 60, 300, 90)
 previous_heart_attack = st.selectbox("Previous Heart Attack", ["Yes", "No"])
 hyperlipidemia = st.selectbox("Hyperlipidemia (High Cholesterol)", ["Yes", "No"])
 
-# Create input dict
-user_data = {
+# --------------------------------
+# CREATE INPUT DATAFRAME
+# --------------------------------
+input_data = pd.DataFrame([{
     "Age": age,
     "Gender": gender,
     "Weight": weight,
@@ -57,28 +59,35 @@ user_data = {
     "Blood_Sugar_Fasting": blood_sugar_fasting,
     "Previous_Heart_Attack": previous_heart_attack,
     "Hyperlipidemia": hyperlipidemia,
-}
+}])
 
-# Convert to DataFrame
-input_df = pd.DataFrame([user_data])
+# YES/NO → 1/0
+binary_cols = [
+    "Smoking", "Alcohol_Intake", "Hypertension", "Diabetes",
+    "Family_History", "Previous_Heart_Attack", "Hyperlipidemia"
+]
 
-# -------------------------------
-# PREDICTION
-# -------------------------------
+for col in binary_cols:
+    input_data[col] = input_data[col].map({"Yes": 1, "No": 0})
+
+# --------------------------------
+# PREDICT BUTTON
+# --------------------------------
 if st.button("Predict Heart Disease Risk"):
     try:
-        # Convert Yes/No categorical columns to 1/0
-        yes_no_cols = [
-            "Smoking", "Alcohol_Intake", "Hypertension", "Diabetes",
-            "Family_History", "Previous_Heart_Attack", "Hyperlipidemia"
-        ]
+        # Make input columns match encoder's expected columns
+        expected_cols = encoder.feature_names_in_
 
-        for col in yes_no_cols:
-            if col in input_df.columns:
-                input_df[col] = input_df[col].map({"Yes": 1, "No": 0})
+        # Add missing columns
+        for col in expected_cols:
+            if col not in input_data.columns:
+                input_data[col] = 0
 
-        # Apply encoder and scaler
-        encoded = encoder.transform(input_df)
+        # Reorder correctly
+        input_data = input_data[expected_cols]
+
+        # Apply encoding & scaling
+        encoded = encoder.transform(input_data)
         scaled = scaler.transform(encoded)
 
         # Model prediction
