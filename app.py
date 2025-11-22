@@ -1,63 +1,143 @@
-import streamlit as st
-import numpy as np
-import pickle
+import streamlit as st # type: ignore
+import pandas as pd
+import plotly.express as px # type: ignore
+import plotly.graph_objects as go # type: ignore
+from joblib import load
 
-# Load model
-with open("model.pkl", "rb") as f:
-    model = pickle.load(f)
+# =============================
+#  LOAD MODEL & PREPROCESSORS
+# =============================
+model = load("final_heart_disease_model.pkl")
+encoder = load("encoder.pkl")
+scaler = load("scaler.pkl")
 
-st.title("Heart Disease Predictor")
+st.title("❤️ Heart Disease Prediction App")
 
-# ------  INPUT WIDGETS  ------
+st.write("Fill in the patient details below to predict the risk of heart disease.")
 
+# =============================
+#  USER INPUT FIELDS
+# =============================
+age = st.number_input("Age", 1, 120, 45)
 gender = st.selectbox("Gender", ["Male", "Female"])
-age = st.number_input("Age", min_value=18, max_value=100, value=45)
-weight = st.number_input("Weight (kg)", min_value=30, max_value=200, value=70)
-height = st.number_input("Height (cm)", min_value=120, max_value=220, value=170)
-sbp = st.number_input("Systolic BP", min_value=80, max_value=250, value=120)
-dbp = st.number_input("Diastolic BP", min_value=40, max_value=150, value=80)
-hr = st.number_input("Heart Rate", min_value=40, max_value=200, value=75)
-blood_sugar = st.number_input("Blood Sugar (mg/dl)", min_value=50, max_value=400, value=90)
+weight = st.number_input("Weight (kg)", 20, 200, 70)
+height = st.number_input("Height (cm)", 100, 230, 170)
+bmi = st.number_input("BMI", 10.0, 60.0, 25.0)
 
-previous_heart_attack = st.selectbox("Previous Heart Attack", ["No", "Yes"])
-hyperlipidemia = st.selectbox("Hyperlipidemia (High Cholesterol)", ["No", "Yes"])
+smoking = st.selectbox("Smoking", ["Never", "Former", "Current"])
+alcohol = st.selectbox("Alcohol Intake", ["None", "Low", "Moderate", "High"])
+physical = st.selectbox("Physical Activity", ["Sedentary", "Moderate", "Active"])
+diet = st.selectbox("Diet", ["Healthy", "Average", "Unhealthy"])
+stress = st.selectbox("Stress Level", ["Low", "Medium", "High"])
 
-# ------  CATEGORY ENCODING ------
+hypertension = st.selectbox("Hypertension", [0, 1])
+diabetes = st.selectbox("Diabetes", [0, 1])
+hyperlipidemia = st.selectbox("Hyperlipidemia", [0, 1])
+family_history = st.selectbox("Family History", [0, 1])
+previous_attack = st.selectbox("Previous Heart Attack", [0, 1])
 
-gender_map = {"Male": 1, "Female": 0}
-yes_no_map = {"No": 0, "Yes": 1}
+systolic = st.number_input("Systolic BP", 80, 250, 120)
+diastolic = st.number_input("Diastolic BP", 40, 150, 80)
+heart_rate = st.number_input("Heart Rate", 40, 200, 72)
+blood_sugar = st.number_input("Blood Sugar (Fasting)", 50, 300, 100)
+cholesterol = st.number_input("Cholesterol Total", 80, 400, 200)
 
-# numeric values
-gender_val = gender_map[gender]
-previous_heart_val = yes_no_map[previous_heart_attack]
-hyperlipidemia_val = yes_no_map[hyperlipidemia]
+# =============================
+#  PREDICTION
+# =============================
+if st.button("Predict"):
 
-# ------  MAKE INPUT ROW ------
+    input_data = pd.DataFrame([{
+        "Age": age,
+        "Gender": gender,
+        "Weight": weight,
+        "Height": height,
+        "BMI": bmi,
+        "Smoking": smoking,
+        "Alcohol_Intake": alcohol,
+        "Physical_Activity": physical,
+        "Diet": diet,
+        "Stress_Level": stress,
+        "Hypertension": hypertension,
+        "Diabetes": diabetes,
+        "Hyperlipidemia": hyperlipidemia,
+        "Family_History": family_history,
+        "Previous_Heart_Attack": previous_attack,
+        "Systolic_BP": systolic,
+        "Diastolic_BP": diastolic,
+        "Heart_Rate": heart_rate,
+        "Blood_Sugar_Fasting": blood_sugar,
+        "Cholesterol_Total": cholesterol
+    }])
 
-input_data = np.array([
-    age,
-    gender_val,
-    weight,
-    height,
-    sbp,
-    dbp,
-    hr,
-    blood_sugar,
-    previous_heart_val,
-    hyperlipidemia_val
-], dtype=float).reshape(1, -1)
+    # Encode + scale like training
+    encoded = encoder.transform(input_data)
+    scaled = scaler.transform(encoded)
 
-# ------  PREDICTION ------
+    prediction = model.predict(scaled)[0]
 
-if st.button("Predict Heart Disease Risk"):
-    try:
-        prediction = model.predict(input_data)[0]
-        prob = model.predict_proba(input_data)[0][1]
+    # Show prediction result
+    if prediction == 1:
+        st.error("⚠ The model predicts HIGH risk of heart disease.")
+    else:
+        st.success("✔ The model predicts LOW risk of heart disease.")
 
-        if prediction == 1:
-            st.error(f"🚨 High Risk of Heart Disease (Probability: {prob:.2f})")
-        else:
-            st.success(f"💚 Low Risk of Heart Disease (Probability: {prob:.2f})")
+    # =====================================================
+    #     VISUAL INSIGHTS SECTION
+    # =====================================================
+    st.subheader("📊 Visual Insights")
 
-    except Exception as e:
-        st.error(f"Error: {str(e)}")
+    # -------------------------
+    # 1️⃣ USER INPUT BAR CHART
+    # -------------------------
+    display_df = input_data.copy()
+    display_numeric = display_df.select_dtypes(include=["int64", "float64"]).iloc[0]
+
+    fig_user = px.bar(
+        x=display_numeric.index,
+        y=display_numeric.values,
+        title="Your Health Measurements",
+        labels={"x": "Feature", "y": "Value"}
+    )
+    st.plotly_chart(fig_user, use_container_width=True)
+
+    # -------------------------
+    # 2️⃣ RISK GAUGE
+    # -------------------------
+    fig_gauge = go.Figure(go.Indicator(
+        mode="gauge+number",
+        value=int(prediction),
+        gauge={
+            "axis": {"range": [0, 1]},
+            "steps": [
+                {"range": [0, 0.5], "color": "lightgreen"},
+                {"range": [0.5, 1], "color": "salmon"}
+            ]
+        },
+        title={"text": "Heart Disease Risk Level"}
+    ))
+
+    st.plotly_chart(fig_gauge, use_container_width=True)
+
+    # -------------------------
+    # 3️⃣ FEATURE IMPORTANCE
+    # -------------------------
+    if hasattr(model, "feature_importances_"):
+        try:
+            importance_df = pd.DataFrame({
+                "Feature": encoder.get_feature_names_out(),
+                "Importance": model.feature_importances_
+            }).sort_values(by="Importance", ascending=False)
+
+            fig_imp = px.bar(
+                importance_df.head(10),
+                x="Importance",
+                y="Feature",
+                orientation="h",
+                title="Top Model Feature Importances"
+            )
+            st.plotly_chart(fig_imp, use_container_width=True)
+        except:
+            st.info("Feature importance could not be displayed due to model encoding format.")
+    else:
+        st.info("Feature importance is not available for this model.")
